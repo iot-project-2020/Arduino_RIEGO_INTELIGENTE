@@ -1,0 +1,297 @@
+// ArduinoJSON  v5.13.1.
+//  "6F D0 9A 52 C0 E9 E4 CD A0 D3 02 A4 B7 A1 92 38 2D CA 2F 26";
+/*    "03:D6:42:23:03:D1:0C:06:73:F7:E2:BD:29:47:13:C3:22:71:37:1B"; */
+//      "B6 F5 80 C8 B1 DA 61 C1 07 9D 80 42 D8 A9 1F AF 9F C8 96 7D";
+//      "B6:F5:80:C8:B1:DA:61:C1:07:9D:80:42:D8:A9:1F:AF:9F:C8:96:7D"; // 2020-02
+//    "03:D6:42:23:03:D1:0C:06:73:F7:E2:BD:29:47:13:C3:22:71:37:1B"; // 2020-02
+
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+
+#include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>                                                    // esp8266 library
+#include <FirebaseArduino.h>                                                // firebase library
+#include <DHT.h>                                                            // dht11 temperature and humidity sensor library
+
+#define type "MQ-135" //MQ135
+#define FIREBASE_HOST "iot-crops.firebaseio.com"                          // the project name address from firebase id
+#define FIREBASE_AUTH "IrkKghCs3Xvds66WsBub5h7GwAfKigptjhgHKpI7"            // the secret key generated from firebase
+
+#define WIFI_SSID "AndroidAP6859"                                             // input your home or public wifi name 
+#define WIFI_PASSWORD "6754281SdTM"                                    //password of wifi ssid
+
+//#define DHTPIN1 5                                                           // what digital pin we're connected to
+#define DHTPIN2 6                                                          // what digital pin we're connected to                                                         // what digital pin we're connected to
+#define DHTPIN2 D2
+
+#define DHTTYPE DHT11                                                       // select dht type as DHT 11 or DHT22
+#define DHTTYPE2 DHT22                                                       // select dht type as DHT 11 or DHT22
+
+#define pinaire 16 // Digital pin connected to your sensor
+
+#define Bomba1 14 // Digital pin connected to your sensor
+#define Bomba2 12// Digital pin connected to your sensor
+#define Bomba3 15 // Digital pin connected to your sensor
+#define Bomba4 13 // Digital pin connected to your sensor
+
+//para la hora
+const int DHTPin = 5;
+
+const long utcOffsetInSeconds = 3600;
+// Define NTP Client to get time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
+const int LDRPin1 = A0;
+//int pin_mq = 16;   //D0
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
+DHT dht(DHTPin, DHTTYPE);
+DHT dht2(DHTPIN2, DHTTYPE2);
+
+const int digitalsuelo1 = 9;
+const int digitalsuelo2 = 4;
+const int digitalsuelo3 = 0;
+const int digitalsuelo4 = 10;
+
+void setup() {
+  dht.begin(); dht2.begin();
+  timeClient.begin();
+  Serial.begin(9600);
+
+  pinMode(pinaire, INPUT);//sensor de aire
+  pinMode(LDRPin1, INPUT);//sensor de luz
+
+  pinMode(digitalsuelo1, INPUT);//sensor de suelo1
+  pinMode(digitalsuelo2, INPUT);//sensor de suelo2
+  pinMode(digitalsuelo3, INPUT);//sensor de suelo3
+  pinMode(digitalsuelo4, INPUT);//sensor de suelo4
+
+  //activamos las bombas para salida
+  pinMode(Bomba1, OUTPUT);//
+  pinMode(Bomba2, OUTPUT);
+  pinMode(Bomba3, OUTPUT);
+  pinMode(Bomba4, OUTPUT);
+
+  delay(1000);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);                                     //intenta conectarse al Wifi
+  Serial.print("Connecting to ");
+  Serial.print(WIFI_SSID);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("Connected to ");
+  Serial.println(WIFI_SSID);
+  Serial.print("IP Address is : ");
+  Serial.println(WiFi.localIP());                                            //print local IP address
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);                              // connect to firebase
+  //Start reading dht sensor
+}
+
+void loop() {
+  //tomar la hora
+  timeClient.update();
+
+  //toma de datos de la luz
+  int ldrStatus = analogRead(LDRPin1);
+
+  //toma de datos de la humedad del suelo
+  float humedadsuelo1 = digitalRead(digitalsuelo1);
+  float humedadsuelo2 = digitalRead(digitalsuelo2);
+  float humedadsuelo3 = digitalRead(digitalsuelo3);
+  float humedadsuelo4 = digitalRead(digitalsuelo4);
+
+  //toma datos del aire
+  float aire = digitalRead(pinaire);
+
+  //toma de datos de la temperatuda y humedad del ambiente
+  float h1 = dht.readHumidity();                                              // Reading temperature or humidity takes about 250 milliseconds!
+  float t1 = dht.readTemperature();                                           // Read temperature as Celsius (the default)
+  float h2 = dht2.readHumidity();                                              // Reading temperature or humidity takes about 250 milliseconds!
+  float t2 = dht2.readTemperature();                                           // Read temperature as Celsius (the default)
+
+  // h = 10.0;
+  //t = 10.2;
+  /*
+    if (isnan(h1) || isnan(t1)) {                                                // Check if any reads failed and exit early (to try again).
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+    }
+    if (isnan(h2) || isnan(t2)) {                                                // Check if any reads failed and exit early (to try again).
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+    }*/
+  Serial.print("%  Aire (CO2): ");  Serial.print(aire);  Serial.println("%");
+  Serial.print("Humedad del ambiente: ");  Serial.print(h1); Serial.print("°% 2. "); Serial.print(h2);
+  Serial.print("%  Temperatura del ambiente: ");  Serial.print(t1);  Serial.print("°C 2. "); Serial.print(t2);  Serial.println("°C ");
+  Serial.print("%  Humedad del suelo: ");
+  Serial.print("1. "); Serial.print(humedadsuelo1); Serial.print("% 2. "); Serial.print(humedadsuelo1); Serial.print("% 3. "); Serial.print(humedadsuelo1);  Serial.print("% 4. "); Serial.print(humedadsuelo1); Serial.println("%");
+
+  Serial.print("%  Radiation: ");  Serial.print(ldrStatus);  Serial.println("% ");
+  int numero = timeClient.getEpochTime();
+
+  //encender bombas  
+
+  String accion1=Firebase.getString("water");
+  String accion2=Firebase.getString("water");
+  String accion3=Firebase.getString("water");
+  String accion4=Firebase.getString("water");
+  if(accion1=="OFF"){
+    digitalWrite(Bomba1, LOW);
+  }else{
+    digitalWrite(Bomba1, HIGH);
+    delay(10000);
+  }
+  if(accion2=="OFF"){
+    digitalWrite(Bomba2, LOW);
+  }else{
+    digitalWrite(Bomba2, HIGH);
+    delay(10000);
+  }
+  if(accion3=="OFF"){
+    digitalWrite(Bomba3, LOW);
+  }else{
+    digitalWrite(Bomba3, HIGH);
+    delay(10000);
+  }
+  if(accion4=="OFF"){
+    digitalWrite(Bomba4, LOW);
+  }else{
+    digitalWrite(Bomba4, HIGH);
+    delay(10000);
+  }
+ 
+  
+  
+  
+  
+  
+  delay(5000);
+
+  //Primer Cultivo
+  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<200> jsonBuffer1;
+  StaticJsonBuffer<200> jsonBuffer2;
+  StaticJsonBuffer<200> jsonBuffer3;
+  StaticJsonBuffer<200> jsonBuffer4;
+  //CO2
+  JsonObject& co2 = jsonBuffer.createObject();
+  co2["data"] = aire;
+  co2["date"] = numero;
+  Firebase.push("/crop-1/CO2", co2);
+  //DHT
+  JsonObject& humidity = jsonBuffer1.createObject();
+  humidity["data"] = h1;
+  humidity["date"] = numero;
+  //Firebase.push("/crop-1/DHT/Humidity", humidity);
+  JsonObject& temperature = jsonBuffer2.createObject();
+  temperature["data"] = t1;
+  temperature["date"] = numero;
+  //Firebase.push("/crop-1/DHT/Temperature", temperature);
+  //Humedad suelo
+  JsonObject& humidityS = jsonBuffer3.createObject();
+  humidityS["data"] = humedadsuelo1;
+  humidityS["date"] = numero;
+  Firebase.push("/crop-1/Humidity", humidityS);
+  //Radiacion
+  JsonObject& radia = jsonBuffer4.createObject();
+  radia["data"] = ldrStatus;
+  radia["date"] = numero;
+  Firebase.push("/crop-1/Radiation", radia);
+    //Segundo  Cultivo
+    StaticJsonBuffer<200> jsonBuffer5;
+    StaticJsonBuffer<200> jsonBuffer6;
+    StaticJsonBuffer<200> jsonBuffer7;
+    StaticJsonBuffer<200> jsonBuffer8;
+    StaticJsonBuffer<200> jsonBuffer9;
+    //CO2
+    JsonObject& co22 = jsonBuffer5.createObject();
+    co2["data"] = aire;
+    co2["date"] = numero;
+    Firebase.push("/crop-1/CO2", co2);
+    //DHT
+    JsonObject& humidity2 = jsonBuffer6.createObject();
+    humidity["data"] = h1;
+    humidity["date"] = numero;
+    //Firebase.push("/crop-2/DHT/Humidity", humidity2);
+    JsonObject& temperature2 = jsonBuffer7.createObject();
+    temperature["data"] = t1;
+    temperature["date"] = numero;
+    //Firebase.push("/crop-2/DHT/Temperature", temperature2);
+    //Humedad suelo
+    JsonObject& humidityS2 = jsonBuffer8.createObject();
+    humidityS["data"] = humedadsuelo1;
+    humidityS["date"] = numero;
+    Firebase.push("/crop-2/Humidity", humidityS2);
+    //Radiacion
+    JsonObject& radia2 = jsonBuffer9.createObject();
+    radia["data"] = ldrStatus;
+    radia["date"] = numero;
+    Firebase.push("/crop-2/Radiation", radia2);
+
+    delay(4000);
+    /*
+    //Tercer Cultivo
+    StaticJsonBuffer<200> jsonBuffer10;
+    StaticJsonBuffer<200> jsonBuffer11;
+    StaticJsonBuffer<200> jsonBuffer12;
+    StaticJsonBuffer<200> jsonBuffer13;
+    StaticJsonBuffer<200> jsonBuffer14;
+    //CO2
+    JsonObject& co23 = jsonBuffer10.createObject();
+    co2["data"] = aire;
+    co2["date"] = numero;
+    Firebase.push("/crop-3/CO2", co23);
+    //DHT
+    JsonObject& humidity3 = jsonBuffer11.createObject();
+    humidity["data"] = h1;
+    humidity["date"] = numero;
+    //Firebase.push("/crop-1/DHT/Humidity", humidity3);
+    JsonObject& temperature3 = jsonBuffer12.createObject();
+    temperature["data"] = t1;
+    temperature["date"] = numero;
+    //Firebase.push("/crop-3/DHT/Temperature", temperature3);
+    //Humedad suelo
+    JsonObject& humidityS3 = jsonBuffer13.createObject();
+    humidityS["data"] = humedadsuelo1;
+    humidityS["date"] = numero;
+    Firebase.push("/crop-3/Humidity", humidityS3);
+    //Radiacion
+    JsonObject& radia3 = jsonBuffer14.createObject();
+    radia["data"] = ldrStatus;
+    radia["date"] = numero;
+    Firebase.push("/crop-3/Radiation", radia3);
+
+    //Cuarto Cultivo
+    StaticJsonBuffer<200> jsonBuffer15;
+    StaticJsonBuffer<200> jsonBuffer16;
+    StaticJsonBuffer<200> jsonBuffer17;
+    StaticJsonBuffer<200> jsonBuffer18;
+    StaticJsonBuffer<200> jsonBuffer19;
+    //CO2
+    JsonObject& co24 = jsonBuffer15.createObject();
+    co2["data"] = aire;
+    co2["date"] = numero;
+    Firebase.push("/crop-1/CO2", co24);
+    //DHT
+    JsonObject& humidity4 = jsonBuffer16.createObject();
+    humidity["data"] = h1;
+    humidity["date"] = numero;
+    //Firebase.push("/crop-4/DHT/Humidity", humidity4);
+    JsonObject& temperature4 = jsonBuffer17.createObject();
+    temperature["data"] = t1;
+    temperature["date"] = numero;
+    //Firebase.push("/crop-4/DHT/Temperature", temperature4);
+    //Humedad suelo
+    JsonObject& humidityS4 = jsonBuffer18.createObject();
+    humidityS["data"] = humedadsuelo1;
+    humidityS["date"] = numero;
+    Firebase.push("/crop-4/Humidity", humidityS4);
+    //Radiacion
+    JsonObject& radia4 = jsonBuffer19.createObject();
+    radia["data"] = ldrStatus;
+    radia["date"] = numero;
+    Firebase.push("/crop-4/Radiation", radia4);*/
+}
